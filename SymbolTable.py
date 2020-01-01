@@ -2,17 +2,17 @@ class SymbolTable:
     def __init__(self):
         self.__class_scoop = {}  # static / field
         self.__subroutine_scoop = {}  # arg / var
-        self.__counters = {"static": 0, "field": 0, "arg": 0, "var": 0}
+        self.__counters = {"static": 0, "field": 0, "argument": 0, "var": 0}
 
     def start_subroutine(self):
         # delete all names at the privies subroutine scoop
         self.__subroutine_scoop = {}
-        self.__counters["arg"] = 0
+        self.__counters["argument"] = 0
         self.__counters["var"] = 0
 
     def define(self, name, this_type, kind):
-        index = self.__counters[this_type]
-        self.__counters[this_type] += 1
+        index = self.__counters[kind]
+        self.__counters[kind] += 1
         if this_type == "static" or this_type == "field":
             self.__class_scoop[name] = [kind, this_type, index]
         else:

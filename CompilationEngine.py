@@ -7,6 +7,7 @@ class CompilationEngine:
     XML_LINE = "<{0}> {1} </{0}>\n"
     COMPARE_SYM_REPLACER = {'<': "&lt;", '>': "&gt;", '"': "&quot;", '&': "&amp;"}
     KEYWORD_CONSTANT = ("true", "false", "null", "this")
+    DEFAULT_CLASSES = ["Output", "Math", "String", "Memory", "Array", "Sys", "Screen", "Keyboard"]
 
     def __init__(self, input_stream, output_stream):
         """
@@ -20,9 +21,10 @@ class CompilationEngine:
         self.__class_name = ""
         self.__statements = {"let": self.compile_let, "if": self.compile_if, "while": self.compile_while,
                              "do": self.compile_do, "return": self.compile_return}
-        self.compile_class()
         self.__counter = 0
-        self.__funcs = {}
+        self.__return_value = ""
+        self.compile_class()
+
         # self.__output.close()
 
     def write_xml(self):
@@ -72,7 +74,7 @@ class CompilationEngine:
             self.__tokenizer.advance() # get token type
             token_type = self.__tokenizer.get_value()
             self.__output.write_push(current_token, index)
-            self.__tokenizer.advance() # get token name
+            self.__tokenizer.advance()  # get token name
             token_name = self.__tokenizer.get_value()
             self.__symbol.define(token_name, token_type, current_token)
             self.__tokenizer.advance()
@@ -117,16 +119,14 @@ class CompilationEngine:
         # self.write_xml()  # write constructor/function/method
         self.__symbol.start_subroutine()
         self.__tokenizer.advance()  # skip constructor/function/method
-        return_value = self.__tokenizer.get_value()
+        self.__return_value = self.__tokenizer.get_value()
         self.__tokenizer.advance()
-        func_name = self.__tokenizer.get_value()
+        func_name = self.__class_name + "." + self.__tokenizer.get_value()
         self.__tokenizer.advance()
         func_args = self.compile_parameter_list()
         self.__output.write_function(func_name, func_args)
-        self.__funcs[func_name] = func_args
         self.compile_subroutine_body()
-        if return_value == "void":
-            self.__output.write_pop("temp", "0")
+
         # self.__output.write("</subroutineDec>\n")
 
     def compile_parameter_list(self):
@@ -274,6 +274,8 @@ class CompilationEngine:
         """
         # self.__output.write("<returnStatement>\n")
         # self.write_xml()  # write return
+        if self.__return_value == "void":
+            self.__output.write_pop("temp", "0")
         self.__tokenizer.advance()  # skip return
         if self.__tokenizer.get_value() != ";":
             self.compile_expression()
@@ -282,6 +284,7 @@ class CompilationEngine:
         # self.write_xml()  # write ;
         self.__tokenizer.advance()  # skip ;
         # self.__output.write("</returnStatement>\n")
+        self.__output.write_return()
 
     def compile_if(self):
         """
@@ -340,7 +343,7 @@ class CompilationEngine:
         # handle constant numbers
         if curr_type == "integerConstant":
             # self.write_xml()  # write the int \ string
-            self.__output.write_push("constant", str(self.__tokenizer.get_value))
+            self.__output.write_push("constant", str(self.__tokenizer.get_value()))
             self.__tokenizer.advance()  # skip
 
         if curr_type == "stringConstant": # todo
@@ -401,7 +404,10 @@ class CompilationEngine:
         if self.__tokenizer.get_next_token() == ".":
             # self.write_xml()  # write name
             var_name = self.__tokenizer.get_value()
-            var_type = self.__symbol.type_of(var_name)
+            if var_name in self.DEFAULT_CLASSES:
+                var_type = var_name
+            else:
+                var_type = self.__symbol.type_of(var_name)
             # ind = self.__symbol.index_of(var_name)
             # self.__output.write_pop(var_kind, ind)
             self.__tokenizer.advance()  # skip var name

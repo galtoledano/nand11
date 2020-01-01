@@ -14,10 +14,10 @@ def main():
         for file in os.listdir(path):
             if file.endswith(".jack"):
                 output_name = path + os.path.sep + file
-                output_name = output_name.replace(".jack", ".xml")
+                output_name = output_name.replace(".jack", ".vm")
                 CompilationEngine(path + os.path.sep + file, output_name)
     else:
-        output_name = path.replace(".jack", ".xml")
+        output_name = path.replace(".jack", ".vm")
         CompilationEngine(path, output_name)
 
 
