@@ -23,6 +23,7 @@ class CompilationEngine:
                              "do": self.compile_do, "return": self.compile_return}
         self.__counter = 0
         self.__return_value = ""
+        self.__num_of_fields = 0
         self.compile_class()
 
         # self.__output.close()
@@ -73,11 +74,13 @@ class CompilationEngine:
             index = self.__symbol.var_count(current_token)
             self.__tokenizer.advance() # get token type
             token_type = self.__tokenizer.get_value()
-            self.__output.write_push(current_token, index)
+            # self.__output.write_push(current_token, index)
             self.__tokenizer.advance()  # get token name
             token_name = self.__tokenizer.get_value()
             self.__symbol.define(token_name, token_type, current_token)
             self.__tokenizer.advance()
+            if current_token == "field":
+                self.__num_of_fields += 1
             # self.write_xml()
             # self.__tokenizer.advance()
             # self.write_xml()
@@ -90,6 +93,8 @@ class CompilationEngine:
                 self.__output.write_push(current_token, index)
                 self.__symbol.define(token_name, token_type, current_token)
                 self.__tokenizer.advance()
+                if current_token == "field":
+                    self.__num_of_fields += 1
                 # self.write_xml()  # write value
                 # self.__tokenizer.advance()
             # self.write_xml()
@@ -97,7 +102,7 @@ class CompilationEngine:
             current_token = self.__tokenizer.get_value()
             # self.__output.write("</classVarDec>\n")
 
-    def compile_subroutine_body(self, func_name):
+    def compile_subroutine_body(self, func_name, is_ctor):
         """
         compiling the program's subroutine body
         """
@@ -108,6 +113,10 @@ class CompilationEngine:
         while self.__tokenizer.get_value() == "var":
             counter += self.compile_var_dec()
         self.__output.write_function(func_name, counter)
+        if is_ctor:
+            self.__output.write_push("constant", str(self.__num_of_fields))
+            self.__output.write_call("Memory.alloc", "1")
+            self.__output.write_pop("pointer", "0")
         self.compile_statements()
         # self.write_xml()  # write }
         self.__tokenizer.advance()  # skip }
@@ -122,9 +131,12 @@ class CompilationEngine:
         self.__symbol.start_subroutine()
         func_args = 0
         method_flag = False
+        is_Ctor = False
         if self.__tokenizer.get_value() == "method":
             func_args = 1
             method_flag = True
+        elif self.__tokenizer.get_value() == "constructor":
+            is_Ctor = True
         self.__tokenizer.advance()  # skip constructor/function/method
         self.__return_value = self.__tokenizer.get_value()
         self.__tokenizer.advance()
@@ -132,7 +144,7 @@ class CompilationEngine:
         self.__tokenizer.advance()
         func_args += self.compile_parameter_list(method_flag)
         # self.__output.write_function(func_name, func_args)
-        self.compile_subroutine_body(func_name)
+        self.compile_subroutine_body(func_name, is_Ctor)
 
         # self.__output.write("</subroutineDec>\n")
 
@@ -421,16 +433,20 @@ class CompilationEngine:
         compiling the program's subroutine call
         """
         var_type = self.__class_name
-        if self.__tokenizer.get_next_token() == ".":
+        var_name = self.__tokenizer.get_value()
+        self.__tokenizer.advance()  # skip var name
+        if self.__tokenizer.get_value() == ".":
             # self.write_xml()  # write name
-            var_name = self.__tokenizer.get_value()
             if var_name in self.DEFAULT_CLASSES:
+                var_type = var_name
+            elif self.__tokenizer.get_next_token() == "new":
                 var_type = var_name
             else:
                 var_type = self.__symbol.type_of(var_name)
+                if var_type != self.__class_name:
+                    self.__output.write_push(self.__symbol.kind_of(var_name), self.__symbol.index_of(var_name))
             # ind = self.__symbol.index_of(var_name)
             # self.__output.write_pop(var_kind, ind)
-            self.__tokenizer.advance()  # skip var name
             # # self.write_xml()  # write .
             self.__tokenizer.advance()  # skip .
         # self.write_xml()  # write name

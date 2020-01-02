@@ -13,7 +13,7 @@ class SymbolTable:
     def define(self, name, this_type, kind):
         index = self.__counters[kind]
         self.__counters[kind] += 1
-        if this_type == "static" or this_type == "field":
+        if kind == "static" or kind == "field":
             self.__class_scoop[name] = [kind, this_type, index]
         else:
             self.__subroutine_scoop[name] = [kind, this_type, index]
@@ -29,6 +29,8 @@ class SymbolTable:
                 return "local"
             return self.__subroutine_scoop[name][0]
         elif name in self.__class_scoop.keys():
+            if self.__class_scoop[name][0] == "field":
+                return "this"
             return self.__class_scoop[name][0]
         return "NONE"  # todo not a string ?
 
