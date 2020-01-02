@@ -25,6 +25,8 @@ class SymbolTable:
     def kind_of(self, name):
         # return kind
         if name in self.__subroutine_scoop.keys():
+            if self.__subroutine_scoop[name][0] == "var":
+                return "local"
             return self.__subroutine_scoop[name][0]
         elif name in self.__class_scoop.keys():
             return self.__class_scoop[name][0]

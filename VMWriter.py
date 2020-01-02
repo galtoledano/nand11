@@ -1,4 +1,7 @@
 class VMWriter:
+    OPERATORS = {"+": "add\n", "-": "sub\n", "*": "call Math.multiply 2\n", "/": "call Math.divide 2",
+                 "&": "and\n", "|": "or\n", "<": "lt\n", ">": "gt\n", "=": "eq\n", "~": "not\n"}
+
     def __init__(self, output_path):
         self.__out = open(output_path, "w")
 
@@ -9,7 +12,7 @@ class VMWriter:
         self.__out.write("pop {0} {1}\n".format(segment, index))
 
     def write_arithmetic(self, command):
-        self.__out.write(command)  # todo lowercase ?
+        self.__out.write(self.OPERATORS[command])  # todo lowercase ?
 
     def write_label(self, label):
         self.__out.write("label {0}\n".format(label))
@@ -30,7 +33,7 @@ class VMWriter:
         self.__out.write("return\n")
 
     def write_operation(self, exp):
-        self.__out.write(exp)
+        self.__out.write(exp + "\n")
 
     def close(self):
         self.__out.close()
