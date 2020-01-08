@@ -263,9 +263,9 @@ class CompilationEngine:
             self.__output.write_push(var_kind, var_index)
             self.__tokenizer.advance()  # skip [
             self.compile_expression(True)
+            # self.__tokenizer.advance()  # skip ]
             self.__tokenizer.advance()  # skip =
             self.__output.write_arithmetic("+")
-            # self.__tokenizer.advance()  # skip ]
             self.compile_expression()
             self.__output.write_pop("temp", self.__symbol.get_temp())
             self.__tokenizer.advance()  # skip ;
@@ -386,6 +386,8 @@ class CompilationEngine:
             # self.write_xml()  # write the int \ string
             self.__output.write_push("constant", str(self.__tokenizer.get_value()))
             self.__tokenizer.advance()  # skip
+            if self.__tokenizer.get_value() == "]":
+                self.__tokenizer.advance() #skip ]
 
         if curr_type == "stringConstant":
             the_string = self.__tokenizer.string_val()
@@ -396,6 +398,8 @@ class CompilationEngine:
                 self.__output.write_push("constant", ord(the_string[i]))
                 self.__output.write_call("String.appendChar", "2")
             self.__tokenizer.advance()
+            if self.__tokenizer.get_value() == "]":
+                self.__tokenizer.advance() #skip ]
 
         # handle const keyword
         elif curr_type == "keyword" and self.__tokenizer.get_value() in self.KEYWORD_CONSTANT:
@@ -466,7 +470,9 @@ class CompilationEngine:
             # self.write_xml()  # write name
             if var_name in self.DEFAULT_CLASSES:
                 var_type = var_name
-            elif self.__tokenizer.get_next_token() == "new":
+            # elif self.__tokenizer.get_next_token() == "new":
+            #     var_type = var_name
+            elif not self.__symbol.in_class(var_name):
                 var_type = var_name
             else:
                 var_type = self.__symbol.type_of(var_name)
