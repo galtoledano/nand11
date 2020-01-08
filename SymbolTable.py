@@ -2,13 +2,14 @@ class SymbolTable:
     def __init__(self):
         self.__class_scoop = {}  # static / field
         self.__subroutine_scoop = {}  # arg / var
-        self.__counters = {"static": 0, "field": 0, "argument": 0, "var": 0}
+        self.__counters = {"static": 0, "field": 0, "argument": 0, "var": 0, "temp": 0}
 
     def start_subroutine(self):
         # delete all names at the privies subroutine scoop
         self.__subroutine_scoop = {}
         self.__counters["argument"] = 0
         self.__counters["var"] = 0
+        self.__counters["temp"] = 0
 
     def define(self, name, this_type, kind):
         index = self.__counters[kind]
@@ -47,3 +48,12 @@ class SymbolTable:
         elif name in self.__class_scoop.keys():
             return self.__class_scoop[name][2]
         return "NONE"  # todo not a string ?
+
+    def in_class(self, name):
+        return name in self.__subroutine_scoop or name in self.__class_scoop
+
+    def get_temp(self):
+        return self.__counters["temp"]
+
+    def set_temp(self):
+        self.__counters["temp"] += 1

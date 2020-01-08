@@ -8,6 +8,7 @@ class CompilationEngine:
     COMPARE_SYM_REPLACER = {'<': "&lt;", '>': "&gt;", '"': "&quot;", '&': "&amp;"}
     KEYWORD_CONSTANT = ("true", "false", "null", "this")
     DEFAULT_CLASSES = ["Output", "Math", "String", "Memory", "Array", "Sys", "Screen", "Keyboard", "Main"]
+    PRIMITIVE_LST = ["int", "boolean", "char", "void"]
 
     def __init__(self, input_stream, output_stream):
         """
@@ -28,17 +29,17 @@ class CompilationEngine:
 
         # self.__output.close()
 
-    def write_xml(self):
-        """
-        writing xml line
-        """
-        if self.__tokenizer.token_type() == "stringConstant":
-            self.__output.write(self.XML_LINE.format(self.__tokenizer.token_type(), self.__tokenizer.string_val()))
-        elif self.__tokenizer.get_value() in self.COMPARE_SYM_REPLACER:
-            xml_val = self.COMPARE_SYM_REPLACER[self.__tokenizer.get_value()]
-            self.__output.write(self.XML_LINE.format(self.__tokenizer.token_type(), xml_val))
-        else:
-            self.__output.write(self.XML_LINE.format(self.__tokenizer.token_type(), self.__tokenizer.get_value()))
+    # def write_xml(self):
+    #     """
+    #     writing xml line
+    #     """
+    #     if self.__tokenizer.token_type() == "stringConstant":
+    #         self.__output.write(self.XML_LINE.format(self.__tokenizer.token_type(), self.__tokenizer.string_val()))
+    #     elif self.__tokenizer.get_value() in self.COMPARE_SYM_REPLACER:
+    #         xml_val = self.COMPARE_SYM_REPLACER[self.__tokenizer.get_value()]
+    #         self.__output.write(self.XML_LINE.format(self.__tokenizer.token_type(), xml_val))
+    #     else:
+    #         self.__output.write(self.XML_LINE.format(self.__tokenizer.token_type(), self.__tokenizer.get_value()))
 
     def compile_class(self):
         """
@@ -72,7 +73,7 @@ class CompilationEngine:
             # self.__output.write("<classVarDec>\n")
             # self.write_xml()
             index = self.__symbol.var_count(current_token)
-            self.__tokenizer.advance() # get token type
+            self.__tokenizer.advance()  # get token type
             token_type = self.__tokenizer.get_value()
             # self.__output.write_push(current_token, index)
             self.__tokenizer.advance()  # get token name
@@ -87,10 +88,10 @@ class CompilationEngine:
             # self.__tokenizer.advance()
             while self.__tokenizer.get_value() == ",":
                 # self.write_xml()  # write ,
-                self.__tokenizer.advance() # get token name
+                self.__tokenizer.advance()  # get token name
                 token_name = self.__tokenizer.get_value()
-                index = self.__symbol.var_count(current_token) # get new index
-                self.__output.write_push(current_token, index)
+                index = self.__symbol.var_count(current_token)  # get new index
+                # self.__output.write_push(current_token, index)
                 self.__symbol.define(token_name, token_type, current_token)
                 self.__tokenizer.advance()
                 if current_token == "field":
@@ -102,7 +103,7 @@ class CompilationEngine:
             current_token = self.__tokenizer.get_value()
             # self.__output.write("</classVarDec>\n")
 
-    def compile_subroutine_body(self, func_name, is_ctor):
+    def compile_subroutine_body(self, func_name, is_ctor, is_method):
         """
         compiling the program's subroutine body
         """
@@ -113,6 +114,9 @@ class CompilationEngine:
         while self.__tokenizer.get_value() == "var":
             counter += self.compile_var_dec()
         self.__output.write_function(func_name, counter)
+        if is_method:
+            self.__output.write_push("argument", "0")
+            self.__output.write_pop("pointer", "0")
         if is_ctor:
             self.__output.write_push("constant", str(self.__num_of_fields))
             self.__output.write_call("Memory.alloc", "1")
@@ -144,7 +148,7 @@ class CompilationEngine:
         self.__tokenizer.advance()
         func_args += self.compile_parameter_list(method_flag)
         # self.__output.write_function(func_name, func_args)
-        self.compile_subroutine_body(func_name, is_Ctor)
+        self.compile_subroutine_body(func_name, is_Ctor, method_flag)
 
         # self.__output.write("</subroutineDec>\n")
 
@@ -157,7 +161,8 @@ class CompilationEngine:
         self.__tokenizer.advance()  # skip (
         # self.__output.write("<parameterList>\n")
         if is_method:
-            self.__symbol.define("this", self.__class_name, "argument")
+            self.__symbol.define("this", self.__class_name, "argument")  # todo  ?
+            counter += 1
         if self.__tokenizer.get_value() != ")":
             # self.write_xml()  # write type
             var_type = self.__tokenizer.get_value()
@@ -210,8 +215,8 @@ class CompilationEngine:
             index = self.__symbol.var_count(token_kind)
             # self.__output.write_push(token_kind, index)
             self.__symbol.define(token_name, token_type, token_kind)
-            self.__tokenizer.advance()
             counter += 1
+            self.__tokenizer.advance()
         # self.write_xml()  # write ;
         self.__tokenizer.advance()  # skip ;
         # self.__output.write("</varDec>\n")
@@ -236,7 +241,10 @@ class CompilationEngine:
         # self.__output.write("<doStatement>\n")
         # self.write_xml()  # write do
         self.__tokenizer.advance()  # skip do
+        if self.__tokenizer.get_next_token() != ".":
+            self.__output.write_push("pointer", "0")
         self.subroutine_call()
+
         # self.write_xml()  # write ;
         self.__tokenizer.advance()  # skip ;
         self.__output.write_pop("temp", "0")
@@ -246,27 +254,32 @@ class CompilationEngine:
         """
         compiling let call
         """
-        # self.__output.write("<letStatement>\n")
-        # self.write_xml()  # write let
         self.__tokenizer.advance()  # skip let
-        # self.write_xml()  # write varName
         var_name = self.__tokenizer.get_value()
         self.__tokenizer.advance()
-        # if self.__tokenizer.get_value() == "[":  # todo handle array
-        #     self.write_xml()  # write [
-        #     self.__tokenizer.advance()
-        #     self.compile_expression()
-        #     self.write_xml()  # write ]
-        #     self.__tokenizer.advance()
-        # self.write_xml()  # write =
-        self.__tokenizer.advance()  # skip =
-        self.compile_expression()  # todo push the value to the stack
-        # self.write_xml()  # write ;
-        self.__tokenizer.advance()  # skip ;
-        # self.__output.write("</letStatement>\n")
-        var_kind = self.__symbol.kind_of(var_name)
-        var_index = self.__symbol.index_of(var_name)
-        self.__output.write_pop(var_kind, var_index)
+        if self.__tokenizer.get_value() == "[":
+            var_kind = self.__symbol.kind_of(var_name)
+            var_index = self.__symbol.index_of(var_name)
+            self.__output.write_push(var_kind, var_index)
+            self.__tokenizer.advance()  # skip [
+            self.compile_expression(True)
+            self.__tokenizer.advance()  # skip =
+            self.__output.write_arithmetic("+")
+            # self.__tokenizer.advance()  # skip ]
+            self.compile_expression()
+            self.__output.write_pop("temp", self.__symbol.get_temp())
+            self.__tokenizer.advance()  # skip ;
+            self.__output.write_pop("pointer", "1")
+            self.__output.write_push("temp", self.__symbol.get_temp())
+            self.__symbol.set_temp()
+            self.__output.write_pop("that", "0")
+        else:
+            self.__tokenizer.advance()  # skip =
+            self.compile_expression()
+            self.__tokenizer.advance()  # skip ;
+            var_kind = self.__symbol.kind_of(var_name)
+            var_index = self.__symbol.index_of(var_name)
+            self.__output.write_pop(var_kind, var_index)
 
     def compile_while(self):
         """
@@ -313,8 +326,8 @@ class CompilationEngine:
         """
         compiling if condition
         """
-        label1 = "if_true" + str(self.__counter)
-        label2 = "if_false" + str(self.__counter)
+        label1 = "IF_TRUE" + str(self.__counter)
+        label2 = "IF_FALSE" + str(self.__counter)
         end = "end_if" + str(self.__counter)
         self.__counter += 1
         # self.__output.write("<ifStatement>\n")
@@ -332,12 +345,12 @@ class CompilationEngine:
         # self.write_xml()  # write {
         self.__tokenizer.advance()  # skip {
         self.compile_statements()
-        self.__output.write_goto(end)
-        self.__output.write_label(label2)
         # self.__output.write_goto(label2)
         # self.write_xml()  # write }
         self.__tokenizer.advance()  # skip }
         if self.__tokenizer.get_value() == "else":
+            self.__output.write_goto(end)
+            self.__output.write_label(label2)
             # self.write_xml()  # write else
             self.__tokenizer.advance()  # skip else
             # self.write_xml()  # write {
@@ -345,22 +358,21 @@ class CompilationEngine:
             self.compile_statements()
             # self.write_xml()  # write }
             self.__tokenizer.advance()  # skip }
-        self.__output.write_label(end)
+            self.__output.write_label(end)
+        else:
+            self.__output.write_label(label2)
         # self.__output.write("</ifStatement>\n")
 
-    def compile_expression(self):
+    def compile_expression(self, is_let=False):
         """
         compiling expressions
         """
-        # self.__output.write("<expression>\n")
         self.compile_term()
-        while self.__tokenizer.is_operator():
-            # self.write_xml()  # write the operator
+        while self.__tokenizer.is_operator() and not is_let:
             operator = self.__tokenizer.get_value()
             self.__tokenizer.advance()  # skip the operator
             self.compile_term()
             self.__output.write_arithmetic(operator)
-        # self.__output.write("</expression>\n")
 
     def compile_term(self):
         """
@@ -375,8 +387,15 @@ class CompilationEngine:
             self.__output.write_push("constant", str(self.__tokenizer.get_value()))
             self.__tokenizer.advance()  # skip
 
-        if curr_type == "stringConstant":  # todo
-            pass
+        if curr_type == "stringConstant":
+            the_string = self.__tokenizer.string_val()
+            length = len(the_string)
+            self.__output.write_push("constant", length)
+            self.__output.write_call("String.new", "1")
+            for i in range(length):
+                self.__output.write_push("constant", ord(the_string[i]))
+                self.__output.write_call("String.appendChar", "2")
+            self.__tokenizer.advance()
 
         # handle const keyword
         elif curr_type == "keyword" and self.__tokenizer.get_value() in self.KEYWORD_CONSTANT:
@@ -387,8 +406,9 @@ class CompilationEngine:
                 self.__output.write_push("constant", "0")
                 self.__output.write_operation("not")
             # self.write_xml()  # write key word
+            # handle this keyword
             else:
-                self.__output.write_push("argument", "0")
+                self.__output.write_push("pointer", "0")
             self.__tokenizer.advance()
 
         elif curr_type == "identifier":
@@ -397,12 +417,16 @@ class CompilationEngine:
                 # self.write_xml()  # write the var name
                 name = self.__tokenizer.get_value()
                 self.__output.write_push(self.__symbol.kind_of(name), self.__symbol.index_of(name))
-                self.__tokenizer.advance() # skip var name
-                if self.__tokenizer.get_value() == "[": # todo: deal with array
-                    pass
+                self.__tokenizer.advance()  # skip var name
+                if self.__tokenizer.get_value() == "]":  # todo: deal with array
+                    self.__tokenizer.advance() # skip ]
+                elif self.__tokenizer.get_value() == "[":
                     # self.write_xml()  # write [
-                    # self.__tokenizer.advance()
-                    # self.compile_expression()
+                    self.__tokenizer.advance() # skip [
+                    self.compile_expression()
+                    self.__output.write_arithmetic("+")
+                    self.__output.write_pop("pointer", "1")
+                    self.__output.write_push("that", "0")
                     # self.write_xml()  # write ]
                     # self.__tokenizer.advance()
             # handle function calls
@@ -415,6 +439,7 @@ class CompilationEngine:
             self.compile_expression()
             # self.write_xml()  # write )
             self.__tokenizer.advance()  # skip )
+
 
         # handle -
         elif self.__tokenizer.get_value() == "-":
@@ -435,7 +460,9 @@ class CompilationEngine:
         var_type = self.__class_name
         var_name = self.__tokenizer.get_value()
         self.__tokenizer.advance()  # skip var name
+        num_args = 0
         if self.__tokenizer.get_value() == ".":
+            # num_args = 1
             # self.write_xml()  # write name
             if var_name in self.DEFAULT_CLASSES:
                 var_type = var_name
@@ -445,16 +472,22 @@ class CompilationEngine:
                 var_type = self.__symbol.type_of(var_name)
                 if var_type != self.__class_name:
                     self.__output.write_push(self.__symbol.kind_of(var_name), self.__symbol.index_of(var_name))
+                    num_args += 1
+            self.__tokenizer.advance()  # skip .
+            func_name = var_type + "." + self.__tokenizer.get_value()
+            self.__tokenizer.advance()  # skip name
+        else:
+            if var_type == self.__class_name or self.__symbol.in_class(var_name):
+                num_args += 1
+            func_name = var_type + "." + var_name
             # ind = self.__symbol.index_of(var_name)
             # self.__output.write_pop(var_kind, ind)
             # # self.write_xml()  # write .
-            self.__tokenizer.advance()  # skip .
         # self.write_xml()  # write name
-        func_name = var_type + "." + self.__tokenizer.get_value()
-        self.__tokenizer.advance()  # skip name
+        # func_name = var_type + "." + self.__tokenizer.get_value()
         # self.write_xml()  # write (
         self.__tokenizer.advance()  # skip (
-        num_args = self.compile_expression_list()
+        num_args += self.compile_expression_list()
         # self.write_xml()  # write )
         self.__tokenizer.advance()  # skip )
         self.__output.write_call(func_name, num_args)
@@ -475,5 +508,10 @@ class CompilationEngine:
                 counter += 1
         # self.__output.write("</expressionList>\n")
         return counter
+
+    def __is_obj(self, var_to_check):
+        if self.__symbol.type_of(var_to_check) in self.PRIMITIVE_LST:
+            return True
+        return False
 
 
