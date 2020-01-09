@@ -57,3 +57,6 @@ class SymbolTable:
 
     def set_temp(self):
         self.__counters["temp"] += 1
+
+    def clear_temp(self):
+        self.__counters["temp"] = 0

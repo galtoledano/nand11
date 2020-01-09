@@ -4,8 +4,8 @@ from SymbolTable import SymbolTable
 
 
 class CompilationEngine:
-    XML_LINE = "<{0}> {1} </{0}>\n"
-    COMPARE_SYM_REPLACER = {'<': "&lt;", '>': "&gt;", '"': "&quot;", '&': "&amp;"}
+    # XML_LINE = "<{0}> {1} </{0}>\n"
+    # COMPARE_SYM_REPLACER = {'<': "&lt;", '>': "&gt;", '"': "&quot;", '&': "&amp;"}
     KEYWORD_CONSTANT = ("true", "false", "null", "this")
     DEFAULT_CLASSES = ["Output", "Math", "String", "Memory", "Array", "Sys", "Screen", "Keyboard", "Main"]
     PRIMITIVE_LST = ["int", "boolean", "char", "void"]
@@ -260,19 +260,15 @@ class CompilationEngine:
         if self.__tokenizer.get_value() == "[":
             var_kind = self.__symbol.kind_of(var_name)
             var_index = self.__symbol.index_of(var_name)
-            self.__output.write_push(var_kind, var_index)
             self.__tokenizer.advance()  # skip [
             self.compile_expression(True)
+            self.__output.write_push(var_kind, var_index)
             # self.__tokenizer.advance()  # skip ]
             self.__tokenizer.advance()  # skip =
             self.__output.write_arithmetic("+")
             self.compile_expression()
-            self.__output.write_pop("temp", self.__symbol.get_temp())
-            self.__tokenizer.advance()  # skip ;
-            self.__output.write_pop("pointer", "1")
-            self.__output.write_push("temp", self.__symbol.get_temp())
-            self.__symbol.set_temp()
-            self.__output.write_pop("that", "0")
+            # self.__tokenizer.advance()  # skip ;
+            self.close_array()
         else:
             self.__tokenizer.advance()  # skip =
             self.compile_expression()
@@ -280,6 +276,14 @@ class CompilationEngine:
             var_kind = self.__symbol.kind_of(var_name)
             var_index = self.__symbol.index_of(var_name)
             self.__output.write_pop(var_kind, var_index)
+
+    def close_array(self):
+        self.__symbol.set_temp()
+        self.__output.write_pop("temp", self.__symbol.get_temp())
+        self.__output.write_pop("pointer", "1")
+        self.__output.write_push("temp", self.__symbol.get_temp())
+        self.__output.write_pop("that", "0")
+        self.__tokenizer.advance()
 
     def compile_while(self):
         """
@@ -367,14 +371,16 @@ class CompilationEngine:
         """
         compiling expressions
         """
-        self.compile_term()
+        self.compile_term(is_let)
+        x = self.__tokenizer.get_prev()
         while self.__tokenizer.is_operator() and not is_let:
             operator = self.__tokenizer.get_value()
             self.__tokenizer.advance()  # skip the operator
             self.compile_term()
             self.__output.write_arithmetic(operator)
+        self.__symbol.clear_temp()
 
-    def compile_term(self):
+    def compile_term(self, is_let=False):
         """
         compiling any kind of terms
         """
@@ -386,8 +392,9 @@ class CompilationEngine:
             # self.write_xml()  # write the int \ string
             self.__output.write_push("constant", str(self.__tokenizer.get_value()))
             self.__tokenizer.advance()  # skip
-            if self.__tokenizer.get_value() == "]":
-                self.__tokenizer.advance() #skip ]
+            while self.__tokenizer.get_value() == "]":
+                self.__tokenizer.advance()  # skip ]
+                # self.close_array()
 
         if curr_type == "stringConstant":
             the_string = self.__tokenizer.string_val()
@@ -398,8 +405,9 @@ class CompilationEngine:
                 self.__output.write_push("constant", ord(the_string[i]))
                 self.__output.write_call("String.appendChar", "2")
             self.__tokenizer.advance()
-            if self.__tokenizer.get_value() == "]":
-                self.__tokenizer.advance() #skip ]
+            while self.__tokenizer.get_value() == "]":
+                # self.__tokenizer.advance()  # skip ]
+                self.close_array()
 
         # handle const keyword
         elif curr_type == "keyword" and self.__tokenizer.get_value() in self.KEYWORD_CONSTANT:
@@ -422,12 +430,15 @@ class CompilationEngine:
                 name = self.__tokenizer.get_value()
                 self.__output.write_push(self.__symbol.kind_of(name), self.__symbol.index_of(name))
                 self.__tokenizer.advance()  # skip var name
-                if self.__tokenizer.get_value() == "]":  # todo: deal with array
-                    self.__tokenizer.advance() # skip ]
-                elif self.__tokenizer.get_value() == "[":
+                while self.__tokenizer.get_value() == "]":  # todo: deal with array
+                    if self.__symbol.kind_of(name) != "local":
+                        self.close_array()
+                    else:
+                        self.__tokenizer.advance()  # skip ]
+                while self.__tokenizer.get_value() == "[":
                     # self.write_xml()  # write [
-                    self.__tokenizer.advance() # skip [
-                    self.compile_expression()
+                    self.__tokenizer.advance()  # skip [
+                    self.compile_expression(is_let)
                     self.__output.write_arithmetic("+")
                     self.__output.write_pop("pointer", "1")
                     self.__output.write_push("that", "0")

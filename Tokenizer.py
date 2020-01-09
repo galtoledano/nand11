@@ -199,3 +199,6 @@ class Tokenizer:
         :return: true is it is a operator, flase is not
         """
         return self.__current_token in self.operators
+
+    def get_prev(self):
+        return self.__file[self.__index - 2]
