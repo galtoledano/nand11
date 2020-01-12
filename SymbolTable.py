@@ -21,7 +21,7 @@ class SymbolTable:
 
     def var_count(self, kind):
         # returns int
-        return self.__counters[kind]  # todo kind in uppercase ?
+        return self.__counters[kind]
 
     def kind_of(self, name):
         # return kind
@@ -33,21 +33,21 @@ class SymbolTable:
             if self.__class_scoop[name][0] == "field":
                 return "this"
             return self.__class_scoop[name][0]
-        return "NONE"  # todo not a string ?
+        return "NONE"
 
     def type_of(self, name):
         if name in self.__subroutine_scoop.keys():
             return self.__subroutine_scoop[name][1]
         elif name in self.__class_scoop.keys():
             return self.__class_scoop[name][1]
-        return "NONE"  # todo not a string ?
+        return "NONE"
 
     def index_of(self, name):
         if name in self.__subroutine_scoop.keys():
             return self.__subroutine_scoop[name][2]
         elif name in self.__class_scoop.keys():
             return self.__class_scoop[name][2]
-        return "NONE"  # todo not a string ?
+        return "NONE"
 
     def in_class(self, name):
         return name in self.__subroutine_scoop or name in self.__class_scoop
