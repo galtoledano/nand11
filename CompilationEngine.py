@@ -473,8 +473,9 @@ class CompilationEngine:
                     curr_type = self.__tokenizer.token_type()
                     self.compile_expression(is_let, name)
                     # self.close_array(is_let, curr_type)
-                # self.__output.write_push(self.__symbol.kind_of(name), self.__symbol.index_of(name))
-                # self.__tokenizer.advance()
+                else:
+                    self.__output.write_push(self.__symbol.kind_of(name), self.__symbol.index_of(name))
+                    # self.__tokenizer.advance()
                 # self.close_array(is_let, curr_type)
 
                 # if self.__tokenizer.get_value() == "]":  # todo: deal with array
