@@ -25,6 +25,7 @@ class CompilationEngine:
         self.__counter = 0
         self.__return_value = ""
         self.__num_of_fields = 0
+        self.__in_array = 0
         self.compile_class()
 
         # self.__output.close()
@@ -258,17 +259,23 @@ class CompilationEngine:
         var_name = self.__tokenizer.get_value()
         self.__tokenizer.advance()
         if self.__tokenizer.get_value() == "[":
+            self.__in_array += 1
             var_kind = self.__symbol.kind_of(var_name)
             var_index = self.__symbol.index_of(var_name)
             self.__tokenizer.advance()  # skip [
             self.compile_expression(True)
-            self.__output.write_push(var_kind, var_index)
             # self.__tokenizer.advance()  # skip ]
             self.__tokenizer.advance()  # skip =
+            self.__output.write_push(var_kind, var_index)
             self.__output.write_arithmetic("+")
             self.compile_expression()
-            # self.__tokenizer.advance()  # skip ;
-            self.close_array()
+            self.__tokenizer.advance()  # skip ;
+            # self.close_array(False, "endLet")
+            self.__output.write_pop("temp", self.__symbol.get_temp())
+            self.__output.write_pop("pointer", "1")
+            self.__output.write_push("temp", self.__symbol.get_temp())
+            self.__output.write_pop("that", "0")
+            self.__symbol.set_temp()
         else:
             self.__tokenizer.advance()  # skip =
             self.compile_expression()
@@ -277,13 +284,26 @@ class CompilationEngine:
             var_index = self.__symbol.index_of(var_name)
             self.__output.write_pop(var_kind, var_index)
 
-    def close_array(self):
-        self.__symbol.set_temp()
-        self.__output.write_pop("temp", self.__symbol.get_temp())
-        self.__output.write_pop("pointer", "1")
-        self.__output.write_push("temp", self.__symbol.get_temp())
-        self.__output.write_pop("that", "0")
-        self.__tokenizer.advance()
+    def close_array(self, is_let, cur_type):
+        inner_array = self.__in_array != 0
+        # self.__tokenizer.advance()  # skip ]
+        if is_let:
+            if cur_type == "integerConstant" and inner_array:
+                self.__output.write_arithmetic("+")
+                self.__output.write_pop("pointer", "1")
+                self.__output.write_push("that", "0")
+
+            elif cur_type == "identifier":
+                self.__output.write_pop("pointer", "1")
+                self.__output.write_push("that", "0")
+                self.__output.write_arithmetic("+")
+            # else:
+            #     self.__output.write_arithmetic("+")
+        else:
+            if cur_type == "integerConstant":
+                self.__output.write_arithmetic("+")
+                self.__output.write_pop("pointer", "1")
+                self.__output.write_push("that", "0")
 
     def compile_while(self):
         """
@@ -367,12 +387,16 @@ class CompilationEngine:
             self.__output.write_label(label2)
         # self.__output.write("</ifStatement>\n")
 
-    def compile_expression(self, is_let=False):
+    def compile_expression(self, is_let=False, name=None):
         """
         compiling expressions
         """
-        self.compile_term(is_let)
-        x = self.__tokenizer.get_prev()
+        curr_type = self.compile_term(is_let)
+        if name:
+            self.__output.write_push(self.__symbol.kind_of(name), self.__symbol.index_of(name))
+            if self.__tokenizer.get_value() == "]":
+                self.__tokenizer.advance()
+            self.close_array(is_let, curr_type)
         while self.__tokenizer.is_operator() and not is_let:
             operator = self.__tokenizer.get_value()
             self.__tokenizer.advance()  # skip the operator
@@ -391,10 +415,12 @@ class CompilationEngine:
         if curr_type == "integerConstant":
             # self.write_xml()  # write the int \ string
             self.__output.write_push("constant", str(self.__tokenizer.get_value()))
+            cur_type = self.__tokenizer.token_type()
             self.__tokenizer.advance()  # skip
-            while self.__tokenizer.get_value() == "]":
+            if self.__tokenizer.get_value() == "]":
+                self.__in_array -= 1
                 self.__tokenizer.advance()  # skip ]
-                # self.close_array()
+                # self.close_array(is_let, cur_type)
 
         if curr_type == "stringConstant":
             the_string = self.__tokenizer.string_val()
@@ -406,8 +432,9 @@ class CompilationEngine:
                 self.__output.write_call("String.appendChar", "2")
             self.__tokenizer.advance()
             while self.__tokenizer.get_value() == "]":
-                # self.__tokenizer.advance()  # skip ]
-                self.close_array()
+                self.__in_array -= 1
+                self.__tokenizer.advance()  # skip ]
+                # self.close_array(is_let, curr_type)
 
         # handle const keyword
         elif curr_type == "keyword" and self.__tokenizer.get_value() in self.KEYWORD_CONSTANT:
@@ -426,35 +453,40 @@ class CompilationEngine:
         elif curr_type == "identifier":
             # handle var names
             if self.__tokenizer.get_next_token() != "(" and self.__tokenizer.get_next_token() != ".":
-                # self.write_xml()  # write the var name
                 name = self.__tokenizer.get_value()
-                self.__output.write_push(self.__symbol.kind_of(name), self.__symbol.index_of(name))
                 self.__tokenizer.advance()  # skip var name
-                while self.__tokenizer.get_value() == "]":  # todo: deal with array
+                if self.__tokenizer.get_value() == "[":
+                    self.__in_array += 1
+                    self.__tokenizer.advance()  # skip [
+                    curr_type = self.__tokenizer.token_type()
+                    self.compile_expression(is_let, name)
+                    # self.close_array(is_let, curr_type)
+                # self.__output.write_push(self.__symbol.kind_of(name), self.__symbol.index_of(name))
+                # self.__tokenizer.advance()
+                # self.close_array(is_let, curr_type)
+
+                if self.__tokenizer.get_value() == "]":  # todo: deal with array
+                    self.__in_array -= 1
                     if self.__symbol.kind_of(name) != "local":
-                        self.close_array()
+                        self.__tokenizer.advance()  # skip ]
+                        # self.close_array(is_let, curr_type)
                     else:
                         self.__tokenizer.advance()  # skip ]
-                while self.__tokenizer.get_value() == "[":
-                    # self.write_xml()  # write [
-                    self.__tokenizer.advance()  # skip [
-                    self.compile_expression(is_let)
-                    self.__output.write_arithmetic("+")
-                    self.__output.write_pop("pointer", "1")
-                    self.__output.write_push("that", "0")
+                    curr_type = self.__tokenizer.token_type()
+                    # self.__output.write_arithmetic("+")
+                    # self.__output.write_pop("pointer", "1")
+                    # self.__output.write_push("that", "0")
                     # self.write_xml()  # write ]
                     # self.__tokenizer.advance()
             # handle function calls
             else:
                 self.subroutine_call()
+
         # handle expression
         elif curr_type == "symbol" and self.__tokenizer.get_value() == "(":
-            # self.write_xml()  # write (
-            self.__tokenizer.advance() # skip (
+            self.__tokenizer.advance()  # skip (
             self.compile_expression()
-            # self.write_xml()  # write )
             self.__tokenizer.advance()  # skip )
-
 
         # handle -
         elif self.__tokenizer.get_value() == "-":
@@ -467,6 +499,7 @@ class CompilationEngine:
             self.compile_term()
             self.__output.write_arithmetic("~")
         # self.__output.write("</term>\n")
+        return curr_type
 
     def subroutine_call(self):
         """
