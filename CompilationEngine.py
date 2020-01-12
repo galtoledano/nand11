@@ -300,11 +300,10 @@ class CompilationEngine:
             # else:
             #     self.__output.write_arithmetic("+")
         else:
-            if cur_type == "integerConstant":
-                self.__output.write_arithmetic("+")
-                self.__output.write_pop("pointer", "1")
-                self.__output.write_push("that", "0")
-        self.__tokenizer.advance()
+            # if cur_type == "integerConstant":
+            self.__output.write_arithmetic("+")
+            self.__output.write_pop("pointer", "1")
+            self.__output.write_push("that", "0")
 
     def compile_while(self):
         """
@@ -393,18 +392,26 @@ class CompilationEngine:
         compiling expressions
         """
         curr_type = self.compile_term(is_let)
-        if name:
+        # self.__tokenizer.advance()
+        if name and (self.__tokenizer.get_value() == "]" or self.__in_array % 2 == 0):
             self.__output.write_push(self.__symbol.kind_of(name), self.__symbol.index_of(name))
             # if self.__tokenizer.get_value() == "]":
             #     self.__tokenizer.advance()
             self.close_array(is_let, curr_type)
-            self.__tokenizer.advance()
+            # self.__tokenizer.advance()
         while self.__tokenizer.is_operator() and not is_let:
             operator = self.__tokenizer.get_value()
             self.__tokenizer.advance()  # skip the operator
             self.compile_term()
             self.__output.write_arithmetic(operator)
+            if name and self.__tokenizer.get_value() == "]":
+                self.__output.write_push(self.__symbol.kind_of(name), self.__symbol.index_of(name))
+                self.close_array(is_let, curr_type)
+
         self.__symbol.clear_temp()
+        if self.__in_array != 0 and self.__tokenizer.get_value() == "]":
+            self.__tokenizer.advance()
+            self.__in_array -= 1
 
     def compile_term(self, is_let=False):
         """
@@ -413,15 +420,18 @@ class CompilationEngine:
         # self.__output.write("<term>\n")
         # dealing with unknown token
         curr_type = self.__tokenizer.token_type()
+        curr_value = self.__tokenizer.get_value()
         # handle constant numbers
         if curr_type == "integerConstant":
             # self.write_xml()  # write the int \ string
             self.__output.write_push("constant", str(self.__tokenizer.get_value()))
             cur_type = self.__tokenizer.token_type()
             self.__tokenizer.advance()  # skip
-            if self.__tokenizer.get_value() == "]":
+            if self.__tokenizer.get_value() == "]" and is_let:
                 self.__in_array -= 1
                 self.__tokenizer.advance()  # skip ]
+                x = self.__in_array
+                y = 0
                 # self.close_array(is_let, cur_type)
 
         if curr_type == "stringConstant":
@@ -435,7 +445,7 @@ class CompilationEngine:
             self.__tokenizer.advance()
             while self.__tokenizer.get_value() == "]":
                 self.__in_array -= 1
-                # self.__tokenizer.advance()  # skip ]
+                self.__tokenizer.advance()  # skip ]
                 # self.close_array(is_let, curr_type)
 
         # handle const keyword
@@ -491,12 +501,12 @@ class CompilationEngine:
             self.__tokenizer.advance()  # skip )
 
         # handle -
-        elif self.__tokenizer.get_value() == "-":
+        elif curr_value == "-":
             self.__tokenizer.advance()  # skip op
             self.compile_term()
             self.__output.write_operation("neg")
         # handle ~
-        elif self.__tokenizer.get_value() == "~":
+        elif curr_value == "~":
             self.__tokenizer.advance()  # skip op
             self.compile_term()
             self.__output.write_arithmetic("~")
