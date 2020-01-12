@@ -304,6 +304,7 @@ class CompilationEngine:
                 self.__output.write_arithmetic("+")
                 self.__output.write_pop("pointer", "1")
                 self.__output.write_push("that", "0")
+        self.__tokenizer.advance()
 
     def compile_while(self):
         """
@@ -394,9 +395,10 @@ class CompilationEngine:
         curr_type = self.compile_term(is_let)
         if name:
             self.__output.write_push(self.__symbol.kind_of(name), self.__symbol.index_of(name))
-            if self.__tokenizer.get_value() == "]":
-                self.__tokenizer.advance()
+            # if self.__tokenizer.get_value() == "]":
+            #     self.__tokenizer.advance()
             self.close_array(is_let, curr_type)
+            self.__tokenizer.advance()
         while self.__tokenizer.is_operator() and not is_let:
             operator = self.__tokenizer.get_value()
             self.__tokenizer.advance()  # skip the operator
@@ -433,7 +435,7 @@ class CompilationEngine:
             self.__tokenizer.advance()
             while self.__tokenizer.get_value() == "]":
                 self.__in_array -= 1
-                self.__tokenizer.advance()  # skip ]
+                # self.__tokenizer.advance()  # skip ]
                 # self.close_array(is_let, curr_type)
 
         # handle const keyword
@@ -465,14 +467,14 @@ class CompilationEngine:
                 # self.__tokenizer.advance()
                 # self.close_array(is_let, curr_type)
 
-                if self.__tokenizer.get_value() == "]":  # todo: deal with array
-                    self.__in_array -= 1
-                    if self.__symbol.kind_of(name) != "local":
-                        self.__tokenizer.advance()  # skip ]
-                        # self.close_array(is_let, curr_type)
-                    else:
-                        self.__tokenizer.advance()  # skip ]
-                    curr_type = self.__tokenizer.token_type()
+                # if self.__tokenizer.get_value() == "]":  # todo: deal with array
+                #     self.__in_array -= 1
+                #     if self.__symbol.kind_of(name) != "local":
+                #         self.__tokenizer.advance()  # skip ]
+                #         # self.close_array(is_let, curr_type)
+                #     else:
+                #         self.__tokenizer.advance()  # skip ]
+                #     curr_type = self.__tokenizer.token_type()
                     # self.__output.write_arithmetic("+")
                     # self.__output.write_pop("pointer", "1")
                     # self.__output.write_push("that", "0")
